@@ -1,0 +1,13 @@
+"package","size of node_modules","minified bundle size",
+"angular-http-server","419K","65K",
+"html-pages","27M","1.5K",
+"http-server","4.4M","956K*","the bin cannot be bundled, instead used the lib/http-server"
+"lite-server","34M","error",
+"lite-web-server","300K","151K",
+"live-server","22M","618K",
+"lws","1.7M","230K",
+"serve","4.2M","559K",
+"servemocks","3.6M","986K",
+"server-lite","442K","61K",
+"st","611K","120K",
+"static-server","247K","39K",

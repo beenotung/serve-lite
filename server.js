@@ -82,6 +82,10 @@ async function main() {
             res.setHeader('Content-Type', 'text/html')
           } else if (file.endsWith('.js')) {
             res.setHeader('Content-Type', 'text/javascript')
+          } else if (file.endsWith('.css')) {
+            res.setHeader('Content-Type', 'text/css')
+          } else if (file.endsWith('.csv')) {
+            res.setHeader('Content-Type', 'text/csv')
           } else if (file.endsWith('.json')) {
             res.setHeader('Content-Type', 'application/json')
           }

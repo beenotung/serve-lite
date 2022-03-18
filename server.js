@@ -3,6 +3,19 @@
 let net = require('net')
 let http = require('http')
 let fs = require('fs')
+let path = require('path')
+
+let args = process.argv
+let port = +process.env.PORT
+
+let root = './'
+for (let i = 2; i < args.length; i++) {
+  let arg = args[i]
+  port = +arg || port
+  if (fs.existsSync(arg)) {
+    root = arg
+  }
+}
 
 function checkPort(port) {
   return new Promise(resolve => {
@@ -21,7 +34,6 @@ function checkPort(port) {
 }
 
 async function getPort() {
-  let port = +process.env.PORT
   if (port) return port
   for (port = 8080; port < 65535; port += 10) {
     let res = await checkPort(port)
@@ -44,7 +56,7 @@ async function main() {
       console.log(`[${now}]`, req.method, req.url)
       switch (req.method) {
         case 'GET': {
-          let file = req.url.replace(/^\//, './')
+          let file = path.join(root, req.url.replace(/^\//, './'))
           if (!fs.existsSync(file)) {
             end(res, 404, `File not found: ${file}`)
             break
@@ -53,12 +65,25 @@ async function main() {
           if (stat.isDirectory()) {
             let dir = file
             let files = fs.readdirSync(dir)
+            res.setHeader('Content-Type', 'text/html')
             for (let file of files) {
               let href = `${req.url}/${file}`.replace(/^\/\//, '/')
-              res.write(`<a href="${href}">${file}</a><br>`)
+              let stat = fs.statSync(path.join(dir, file))
+              let type = stat.isDirectory() ? 'D' : 'F'
+              res.write(`[${type}] <a href="${href}">${file}</a><br>`)
+            }
+            if (files.length === 0) {
+              res.write(`[empty directory]`)
             }
             res.end()
             break
+          }
+          if (file.endsWith('.html')) {
+            res.setHeader('Content-Type', 'text/html')
+          } else if (file.endsWith('.js')) {
+            res.setHeader('Content-Type', 'text/javascript')
+          } else if (file.endsWith('.json')) {
+            res.setHeader('Content-Type', 'application/json')
           }
           fs.createReadStream(file).pipe(res)
           break

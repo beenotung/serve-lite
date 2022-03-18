@@ -9,6 +9,36 @@ a lightweight http-server for static file-based web development
 - zero dependencies
 - zero code: launch from cli with npx
 
+## Usage
+
+```bash
+npx lit-serve [port] [rootDir]
+```
+
+The port and rootDir are optionals
+
+### Usage Example
+
+```bash
+# listen on port 8100 and using ./public as root directory
+npx lit-serve 8100 public
+
+# the order can be flipped so you don't need to remember
+npx lit-server public 8100
+
+# auto find available port from 8080 to 65530
+npx lit-server public
+
+# by default use current working directory as root directory
+npx lit-server
+```
+
+Sample output:
+
+```
+listening on http://localhost:8100
+```
+
 ## License
 
 This project is licensed with [BSD-2-Clause](./LICENSE)

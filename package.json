@@ -23,7 +23,9 @@
   "bugs": {
     "url": "https://github.com/beenotung/lit-serve/issues"
   },
-  "main": "index.js",
+  "bin": {
+    "lit-serve": "server.js"
+  },
   "directories": {
     "doc": "docs"
   },

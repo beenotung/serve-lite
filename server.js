@@ -56,7 +56,8 @@ async function main() {
       console.log(`[${now}]`, req.method, req.url)
       switch (req.method) {
         case 'GET': {
-          let file = path.join(root, req.url.replace(/^\//, './'))
+          let url = decodeURIComponent(req.url)
+          let file = path.join(root, url.replace(/^\//, './'))
           if (!fs.existsSync(file)) {
             end(res, 404, `File not found: ${file}`)
             break

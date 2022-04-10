@@ -1,5 +1,5 @@
 {
-  "name": "lit-serve",
+  "name": "serve-lite",
   "version": "0.0.0",
   "description": "a lightweight http-server for static file-based web development",
   "keywords": [
@@ -17,14 +17,14 @@
   "license": "BSD-2-Clause",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/beenotung/lit-serve.git"
+    "url": "git+https://github.com/beenotung/serve-lite.git"
   },
-  "homepage": "https://github.com/beenotung/lit-serve#readme",
+  "homepage": "https://github.com/beenotung/serve-lite#readme",
   "bugs": {
-    "url": "https://github.com/beenotung/lit-serve/issues"
+    "url": "https://github.com/beenotung/serve-lite/issues"
   },
   "bin": {
-    "lit-serve": "server.js"
+    "serve-lite": "server.js"
   },
   "directories": {
     "doc": "docs"

@@ -1,8 +1,8 @@
-# lit-serve
+# serve-lite
 
 a lightweight http-server for static file-based web development
 
-[![npm Package Version](https://img.shields.io/npm/v/lit-serve.svg?maxAge=2592000)](https://www.npmjs.com/package/lit-serve)
+[![npm Package Version](https://img.shields.io/npm/v/serve-lite.svg?maxAge=2592000)](https://www.npmjs.com/package/serve-lite)
 
 ## Features
 
@@ -12,7 +12,7 @@ a lightweight http-server for static file-based web development
 ## Usage
 
 ```bash
-npx lit-serve [port] [rootDir]
+npx serve-lite [port] [rootDir]
 ```
 
 The port and rootDir are optionals
@@ -21,16 +21,16 @@ The port and rootDir are optionals
 
 ```bash
 # listen on port 8100 and using ./public as root directory
-npx lit-serve 8100 public
+npx serve-lite 8100 public
 
 # the order can be flipped so you don't need to remember
-npx lit-server public 8100
+npx serve-lite public 8100
 
 # auto find available port from 8080 to 65530
-npx lit-server public
+npx serve-lite public
 
 # by default use current working directory as root directory
-npx lit-server
+npx serve-lite
 ```
 
 Sample output:

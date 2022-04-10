@@ -48,6 +48,26 @@ function end(res, status, content) {
   res.end()
 }
 
+let templatePart1 = /* html */ `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>
+`.trim()
+
+let templatePart2 = /* html */ `
+  </title>
+</head>
+<body>
+`.trim()
+
+let templatePart3 = /* html */ `
+</body>
+</html>
+`.trim()
+
 async function main() {
   let port = await getPort()
   let server = http.createServer((req, res) => {
@@ -56,8 +76,8 @@ async function main() {
       console.log(`[${now}]`, req.method, req.url)
       switch (req.method) {
         case 'GET': {
-          let url = decodeURIComponent(req.url)
-          let file = path.join(root, url.replace(/^\//, './'))
+          let filename = decodeURIComponent(req.url).replace(/^\//, './')
+          let file = path.join(root, filename)
           if (!fs.existsSync(file)) {
             end(res, 404, `File not found: ${file}`)
             break
@@ -67,6 +87,9 @@ async function main() {
             let dir = file
             let files = fs.readdirSync(dir)
             res.setHeader('Content-Type', 'text/html')
+            res.write(templatePart1)
+            res.write(path.basename(filename))
+            res.write(templatePart2)
             for (let file of files) {
               let href = `${req.url}/${file}`.replace(/^\/\//, '/')
               let stat = fs.statSync(path.join(dir, file))
@@ -76,6 +99,7 @@ async function main() {
             if (files.length === 0) {
               res.write(`[empty directory]`)
             }
+            res.write(templatePart3)
             res.end()
             break
           }

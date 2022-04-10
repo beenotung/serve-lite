@@ -17,6 +17,39 @@ for (let i = 2; i < args.length; i++) {
   }
 }
 
+let contentTypes = {
+  '.html': 'text/html',
+  '.php': 'text/plain',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.txt': 'text/plain',
+  '.md': 'text/plain',
+  '.js': 'text/javascript',
+  '.mjs': 'text/javascript',
+  '.ts': 'text/plain',
+  '.css': 'text/css',
+  '.csv': 'text/csv',
+  '.json': 'application/json',
+  '.xml': 'application/xml',
+  '.wav': 'audio/wav',
+  '.weba': 'audio/webm',
+  '.webm': 'video/webm',
+  '.webp': 'image/webp',
+  '.mp3': 'audio/mpeg',
+  '.aac': 'audio/aac',
+  '.avi': 'video/x-msvideo',
+  '.mp4': 'video/mp4',
+  '.mpeg': 'video/mpeg',
+  '.oga': 'audio/ogg',
+  '.ogv': 'video/ogg',
+  '.opus': 'audio/opus',
+  '.png': 'image/png',
+  '.jpeg': 'image/jpeg',
+  '.jpg': 'image/jpeg',
+  '.epub': 'application/epub+zip',
+}
+
 function checkPort(port) {
   return new Promise(resolve => {
     let server = net.createServer(socket => {
@@ -103,16 +136,10 @@ async function main() {
             res.end()
             break
           }
-          if (file.endsWith('.html')) {
-            res.setHeader('Content-Type', 'text/html')
-          } else if (file.endsWith('.js')) {
-            res.setHeader('Content-Type', 'text/javascript')
-          } else if (file.endsWith('.css')) {
-            res.setHeader('Content-Type', 'text/css')
-          } else if (file.endsWith('.csv')) {
-            res.setHeader('Content-Type', 'text/csv')
-          } else if (file.endsWith('.json')) {
-            res.setHeader('Content-Type', 'application/json')
+          let ext = path.extname(filename)
+          let contentType = contentTypes[ext]
+          if (contentType) {
+            res.setHeader('Content-Type', contentType)
           }
           fs.createReadStream(file).pipe(res)
           break

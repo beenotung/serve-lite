@@ -26,6 +26,9 @@
   "bin": {
     "serve-lite": "server.js"
   },
+  "files": [
+    "server.js"
+  ],
   "directories": {
     "doc": "docs"
   },

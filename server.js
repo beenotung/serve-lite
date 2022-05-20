@@ -4,6 +4,7 @@ let net = require('net')
 let http = require('http')
 let fs = require('fs')
 let path = require('path')
+let os = require('os')
 
 let args = process.argv
 let port = +process.env.PORT
@@ -157,6 +158,13 @@ async function main() {
   server.listen(port, () => {
     port = port || server.address().port
     console.log(`listening on http://localhost:${port}`)
+    Object.entries(os.networkInterfaces()).forEach(([name, addresses]) => {
+      addresses.forEach(address => {
+        let host = address.address
+        if (host.includes(':')) host = `[${host}]`
+        console.log(`listening on http://${host}:${port} (${name})`)
+      })
+    })
   })
 }
 

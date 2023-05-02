@@ -112,6 +112,10 @@ async function main() {
         case 'GET': {
           let filename = decodeURIComponent(req.url).replace(/^\//, './')
           let file = path.join(root, filename)
+          if (path.relative(root, file).startsWith('..')) {
+            end(res, 404, `Escape above root: ${filename}`)
+            break
+          }
           if (!fs.existsSync(file)) {
             end(res, 404, `File not found: ${file}`)
             break

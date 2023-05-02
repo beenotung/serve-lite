@@ -130,9 +130,14 @@ async function main() {
             res.write(templatePart2)
             for (let file of files) {
               let href = `${req.url}/${file}`.replace(/^\/\//, '/')
+              href = encodeURI(href)
+              let text = file
+                .replace(/&/g, '&amp')
+                .replace(/</g, '&lt')
+                .replace(/>/g, '&gt')
               let stat = fs.statSync(path.join(dir, file))
               let type = stat.isDirectory() ? 'D' : 'F'
-              res.write(`[${type}] <a href="${href}">${file}</a><br>`)
+              res.write(`[${type}] <a href="${href}">${text}</a><br>`)
             }
             if (files.length === 0) {
               res.write(`[empty directory]`)

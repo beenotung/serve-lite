@@ -113,6 +113,10 @@ async function main() {
           let url = decodeURIComponent(req.url)
           let filename = url.replace(/^\//, './')
           let file = path.join(root, filename)
+          if (path.relative(root, file).startsWith('..')) {
+            end(res, 404, `Escape above root: ${filename}`)
+            break
+          }
           if (!fs.existsSync(file)) {
             end(res, 404, `File not found: ${file}`)
             break
@@ -127,9 +131,14 @@ async function main() {
             res.write(templatePart2)
             for (let file of files) {
               let href = `${url}/${file}`.replace(/^\/\//, '/')
+              href = encodeURI(href)
+              let text = file
+                .replace(/&/g, '&amp')
+                .replace(/</g, '&lt')
+                .replace(/>/g, '&gt')
               let stat = fs.statSync(path.join(dir, file))
               let type = stat.isDirectory() ? 'D' : 'F'
-              res.write(`[${type}] <a href="${href}">${file}</a><br>`)
+              res.write(`[${type}] <a href="${href}">${text}</a><br>`)
             }
             if (files.length === 0) {
               res.write(`[empty directory]`)

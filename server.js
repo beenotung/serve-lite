@@ -110,7 +110,8 @@ async function main() {
       console.log(`[${now}]`, req.method, req.url)
       switch (req.method) {
         case 'GET': {
-          let filename = decodeURIComponent(req.url).replace(/^\//, './')
+          let url = decodeURIComponent(req.url)
+          let filename = url.replace(/^\//, './')
           let file = path.join(root, filename)
           if (!fs.existsSync(file)) {
             end(res, 404, `File not found: ${file}`)
@@ -125,7 +126,7 @@ async function main() {
             res.write(path.basename(filename))
             res.write(templatePart2)
             for (let file of files) {
-              let href = `${req.url}/${file}`.replace(/^\/\//, '/')
+              let href = `${url}/${file}`.replace(/^\/\//, '/')
               let stat = fs.statSync(path.join(dir, file))
               let type = stat.isDirectory() ? 'D' : 'F'
               res.write(`[${type}] <a href="${href}">${file}</a><br>`)

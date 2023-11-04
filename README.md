@@ -8,11 +8,12 @@ a lightweight http-server for static file-based web development
 
 - zero dependencies
 - zero code: launch from cli with npx
+- support SPA (client-side routing) with (`--app` argument)
 
 ## Usage
 
 ```bash
-npx serve-lite [port] [rootDir]
+npx serve-lite [--app] [port] [rootDir]
 ```
 
 The port and rootDir are optionals
@@ -28,6 +29,9 @@ npx serve-lite public 8100
 
 # auto find available port from 8080 to 65530
 npx serve-lite public
+
+# serve react build directory with client-side routing
+npx serve-lite --app build
 
 # by default use current working directory as root directory
 npx serve-lite

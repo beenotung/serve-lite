@@ -8,10 +8,15 @@ let os = require('os')
 
 let args = process.argv
 let port = +process.env.PORT
+let appMode = false
 
 let root = './'
 for (let i = 2; i < args.length; i++) {
   let arg = args[i]
+  if (arg == '--app') {
+    appMode = true
+    continue
+  }
   port = +arg || port
   if (fs.existsSync(arg)) {
     root = arg
@@ -102,6 +107,14 @@ let templatePart3 = /* html */ `
 </html>
 `.trim()
 
+function isDirectoryWithIndexFile(dir) {
+  let stat = fs.statSync(dir)
+  if (stat.isDirectory()) {
+    let file = path.join(dir, 'index.html')
+    return fs.existsSync(file)
+  }
+}
+
 async function main() {
   let port = await getPort()
   let server = http.createServer((req, res) => {
@@ -117,9 +130,23 @@ async function main() {
             end(res, 404, `Escape above root: ${filename}`)
             break
           }
+          if (
+            appMode &&
+            !filename.endsWith('.html') &&
+            fs.existsSync(file) &&
+            isDirectoryWithIndexFile(file)
+          ) {
+            filename = 'index.html'
+            file = path.join(file, filename)
+          }
           if (!fs.existsSync(file)) {
-            end(res, 404, `File not found: ${file}`)
-            break
+            if (appMode) {
+              filename = 'index.html'
+              file = path.join(root, filename)
+            } else {
+              end(res, 404, `File not found: ${file}`)
+              break
+            }
           }
           let stat = fs.statSync(file)
           if (stat.isDirectory()) {

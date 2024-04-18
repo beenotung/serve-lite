@@ -128,6 +128,12 @@ async function main() {
           let url = decodeURIComponent(req.url)
           let filename = url.replace(/^\//, './')
           let file = path.join(root, filename)
+          // fallback to use pathname (without search query) if file not found
+          if (!fs.existsSync(file) && filename.includes('?')) {
+            url = decodeURIComponent(new URL('http://host' + req.url).pathname)
+            filename = url.replace(/^\//, './')
+            file = path.join(root, filename)
+          }
           if (path.relative(root, file).startsWith('..')) {
             end(res, 404, `Escape above root: ${filename}`)
             break

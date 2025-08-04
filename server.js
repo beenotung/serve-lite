@@ -124,6 +124,7 @@ async function main() {
       let now = new Date().toLocaleString()
       console.log(`[${now}]`, req.method, req.url)
       switch (req.method) {
+        case 'HEAD':
         case 'GET': {
           let url = decodeURIComponent(req.url)
           let filename = url.replace(/^\//, './')
@@ -182,12 +183,19 @@ async function main() {
             res.end()
             break
           }
+          res.setHeader('Content-Length', stat.size)
+          res.setHeader('Last-Modified', stat.mtime.toUTCString())
+          res.setHeader('ETag', `W/${stat.mtime.getTime()}`)
           let ext = path.extname(filename)
           let contentType = contentTypes[ext]
           if (contentType) {
             res.setHeader('Content-Type', contentType)
           }
-          fs.createReadStream(file).pipe(res)
+          if (req.method === 'HEAD') {
+            res.end()
+          } else {
+            fs.createReadStream(file).pipe(res)
+          }
           break
         }
         default: {

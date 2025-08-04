@@ -24,7 +24,7 @@ for (let i = 2; i < args.length; i++) {
 }
 
 let contentTypes = {
-  '.html': 'text/html',
+  '.html': 'text/html; charset=utf-8',
   '.php': 'text/plain',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',

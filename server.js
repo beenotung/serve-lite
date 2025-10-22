@@ -117,6 +117,68 @@ function isDirectoryWithIndexFile(dir) {
   }
 }
 
+function parseNumber(s) {
+  if (s.length === 0) return NaN
+  if (s[0] === '-') return NaN
+  return parseFloat(s.replace('e', ' ').replace('.', ' '))
+}
+
+function removeNumberPrefix(s, num) {
+  if (num === 0) {
+    return s.replace(/^0+/, '')
+  }
+  return s.replace(/^0+/, '').slice(String(num).length)
+}
+
+function countCommonSuffix(a, b) {
+  let n = Math.min(a.length, b.length)
+  let tail = 0
+  for (let i = 0; i < n; i++) {
+    if (a[a.length - 1 - i] === b[b.length - 1 - i]) {
+      tail++
+    } else {
+      break
+    }
+  }
+  return tail
+}
+
+function countCommonPrefix(a, b) {
+  let n = Math.min(a.length, b.length)
+  let prefix = 0
+  for (let i = 0; i < n; i++) {
+    if (a[i] === b[i]) {
+      prefix++
+    } else {
+      break
+    }
+  }
+  return prefix
+}
+
+function prettyCompare(a, b) {
+  let suffix = countCommonSuffix(a, b)
+  a = a.substring(0, a.length - suffix)
+  b = b.substring(0, b.length - suffix)
+
+  for (;;) {
+    let prefix = countCommonPrefix(a, b)
+    a = a.substring(prefix)
+    b = b.substring(prefix)
+
+    let aNum = parseNumber(a)
+    let bNum = parseNumber(b)
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      if (aNum < bNum) return -1
+      if (aNum > bNum) return 1
+      a = removeNumberPrefix(a, aNum)
+      b = removeNumberPrefix(b, bNum)
+      continue
+    }
+    return a < b ? -1 : a > b ? 1 : 0
+  }
+}
+
 async function main() {
   let port = await getPort()
   let server = http.createServer((req, res) => {
@@ -161,6 +223,7 @@ async function main() {
           if (stat.isDirectory()) {
             let dir = file
             let files = fs.readdirSync(dir)
+            files.sort(prettyCompare)
             res.setHeader('Content-Type', 'text/html')
             res.write(templatePart1)
             res.write(path.basename(filename))

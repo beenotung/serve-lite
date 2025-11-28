@@ -100,6 +100,20 @@ let templatePart1 = /* html */ `<!DOCTYPE html>
 
 let templatePart2 = /* html */ `
   </title>
+  <style>
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #1a1a1a;
+        color: #ffffff;
+      }
+      a {
+        color: #6ba3ff;
+      }
+      a:visited {
+        color: #d4a5ff;
+      }
+    }
+  </style>
 </head>
 <body>
 `.trim()

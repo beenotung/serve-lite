@@ -5,16 +5,22 @@ let http = require('http')
 let fs = require('fs')
 let path = require('path')
 let os = require('os')
+let { spawn } = require('child_process')
 
 let args = process.argv
 let port = +process.env.PORT
 let appMode = false
+let openBrowser = null
 
 let root = './'
 for (let i = 2; i < args.length; i++) {
   let arg = args[i]
   if (arg == '--app') {
     appMode = true
+    continue
+  }
+  if (arg.startsWith('--open=')) {
+    openBrowser = arg.substring('--open='.length)
     continue
   }
   port = +arg || port
@@ -295,6 +301,10 @@ async function main() {
         console.log(`listening on http://${host}:${port} (${name})`)
       })
     })
+    if (openBrowser) {
+      let url = `http://localhost:${port}`
+      spawn(openBrowser, [url], { detached: true, stdio: 'ignore' })
+    }
   })
 }
 

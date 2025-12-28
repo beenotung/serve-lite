@@ -199,6 +199,16 @@ function prettyCompare(a, b) {
   }
 }
 
+function statToType(stat) {
+  if (stat.isDirectory()) return 'D'
+  if (stat.isFile()) return 'F'
+  if (stat.isSymbolicLink()) return 'L'
+  if (stat.isCharacterDevice()) return 'C'
+  if (stat.isBlockDevice()) return 'B'
+  if (stat.isFIFO()) return 'P'
+  if (stat.isSocket()) return 'S'
+}
+
 async function main() {
   let port = await getPort()
   let server = http.createServer((req, res) => {
@@ -255,8 +265,25 @@ async function main() {
                 .replace(/&/g, '&amp')
                 .replace(/</g, '&lt')
                 .replace(/>/g, '&gt')
-              let stat = fs.statSync(path.join(dir, file))
-              let type = stat.isDirectory() ? 'D' : 'F'
+              let filePath = path.join(dir, file)
+              let stat
+              let type
+              try {
+                stat = fs.statSync(filePath)
+                type = statToType(stat)
+              } catch (err) {
+                // Handle inaccessible files (e.g., broken symlinks)
+                try {
+                  stat = fs.lstatSync(filePath)
+                  type = statToType(stat)
+                  if (type === 'L') {
+                    let target = fs.readlinkSync(filePath)
+                    text = `${text} → ${target} (broken symlink)`
+                  }
+                } catch (lstatErr) {
+                  type = '?'
+                }
+              }
               res.write(`[${type}] <a href="${href}">${text}</a><br>`)
             }
             if (files.length === 0) {

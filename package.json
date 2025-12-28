@@ -1,6 +1,6 @@
 {
   "name": "serve-lite",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "a lightweight http-server for static file-based web development",
   "keywords": [
     "http-server",

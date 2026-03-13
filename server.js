@@ -260,7 +260,7 @@ async function main() {
             res.write(templatePart2)
             for (let file of files) {
               let href = `${url}/${file}`.replace(/^\/\//, '/')
-              href = encodeURI(href)
+              href = encodeURI(href).replaceAll('#', '%23')
               let text = file
                 .replace(/&/g, '&amp')
                 .replace(/</g, '&lt')

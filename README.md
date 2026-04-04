@@ -4,6 +4,8 @@ a lightweight http-server for static file-based web development
 
 [![npm Package Version](https://img.shields.io/npm/v/serve-lite.svg?maxAge=2592000)](https://www.npmjs.com/package/serve-lite)
 
+single js file (9 kB) · npm pkg 5 kB compressed
+
 ## Features
 
 - zero dependencies

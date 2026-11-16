@@ -14,7 +14,7 @@ single js file (9 kB) · npm pkg 5 kB compressed
 - auto open browser with (`--open=<browser>` argument)
 - shows all network interface URLs for local network access
 - dark mode support (follows system preference)
-- smart numeric file sorting (handles common prefix/suffix)
+- smart numeric file sorting: numeric runs compare by value, so `file2` before `file10` and `1.0.10` before `1.0.11`
 - supports various media formats (video/audio viewing in browser)
 - UTF-8 charset support for text files (markdown, txt, etc.)
 - HEAD method support (check file size and last modified time)
@@ -25,10 +25,20 @@ single js file (9 kB) · npm pkg 5 kB compressed
 ## Usage
 
 ```bash
-npx serve-lite [--app] [--open=<browser>] [--cors[=<origin>]] [--cors-private-network] [--symlink=outside] [port] [rootDir]
+npx serve-lite [options] [port] [rootDir]
 ```
 
-The port and rootDir are optionals
+### Options
+
+| Option | What it does |
+| --- | --- |
+| `--app` | serve `index.html` for client-side routing when the requested path is not a file |
+| `--open=<browser>` | open the server URL in `<browser>` after the server starts |
+| `--cors[=<origin>]` | allow cross-origin reads from `<origin>`, repeatable; bare `--cors` allows any origin (unsafe) |
+| `--cors-private-network` | answer the Private Network Access preflight, for a public page that calls this server; needs `--cors` |
+| `--symlink=<scope>` | `inside` (default) refuses a symlink whose target is outside the root, `outside` allows it; any other value, or a bare `--symlink`, is a usage error |
+| `[port]` | port to listen on; defaults to `$PORT`, else the first free port from 8080 |
+| `[rootDir]` | directory to serve; defaults to the current directory |
 
 ### Usage Example
 
@@ -54,15 +64,23 @@ npx serve-lite
 # allow cross-origin reads from one origin, with PNA preflight support
 npx serve-lite --cors=https://portal.feelingss.ai --cors-private-network 8100 public
 
+# allow any origin — unsafe: every website the visitor opens can read this server
+npx serve-lite --cors public
+
 # serve a symlink that points outside the root directory
 npx serve-lite --symlink=outside 8100 public
 ```
 
-`--cors` can be repeated to allow several origins. `--cors` without a value allows **any** origin, which is unsafe: any website the user visits can then read responses from this server. Use `--cors-private-network` together with `--cors`, so that Chrome's Private Network Access preflight (a request from a public origin to a local/private address) is answered with `Access-Control-Allow-Private-Network: true`.
+### Notes
 
-A symlink is resolved before it is served, and by default a link whose target is outside the root directory is refused (`404 Escape above root`), so a link cannot expose the rest of the filesystem. Pass `--symlink=outside` to allow it; the server then prints `symlinks outside <root> are served` on startup. `--symlink=outside` is the only accepted value — any other value, or a bare `--symlink`, exits with a usage error.
+- Bare `--cors` allows any origin, so every website the user visits can read responses from this server. Pass an origin where possible (`--cors=https://app.example.com`), and repeat the flag for several origins.
+- `--cors-private-network` answers Chrome's Private Network Access preflight with `Access-Control-Allow-Private-Network: true`, for a public page that calls this address; it needs `--cors` to have any effect.
+- A symlink is resolved before it is served, so "outside the root" refers to where it finally points, not where the link sits.
+- A link inside the root that points outside it is refused in the default scope, which `--symlink=inside` spells out (`404 Escape above root`). `--symlink=outside` allows it and prints `symlinks outside <root> are served` at startup, with `<root>` resolved so the line names the boundary actually enforced. An out-of-scope link is listed as `[L] … (outside root)`, so the listing does not offer a path the server refuses.
+- A dangling symlink has no target to resolve: a directory listing marks it as a broken symlink, and requesting it answers `404 File not found`.
+- `--symlink` takes `inside` or `outside`; any other value, or a bare `--symlink`, is a usage error.
 
-Sample output:
+### Sample output
 
 ```
 listening on http://localhost:8100

@@ -11,6 +11,9 @@ let args = process.argv
 let port = +process.env.PORT
 let appMode = false
 let openBrowser = null
+// corsOrigins is an allowlist of origins; '*' (from the bare --cors) allows any
+let corsOrigins = []
+let corsPna = false
 
 let root = './'
 for (let i = 2; i < args.length; i++) {
@@ -23,10 +26,29 @@ for (let i = 2; i < args.length; i++) {
     openBrowser = arg.substring('--open='.length)
     continue
   }
+  if (arg == '--cors') {
+    corsOrigins.push('*')
+    continue
+  }
+  if (arg.startsWith('--cors=')) {
+    corsOrigins.push(arg.substring('--cors='.length))
+    continue
+  }
+  if (arg == '--cors-private-network') {
+    corsPna = true
+    continue
+  }
   port = +arg || port
   if (fs.existsSync(arg)) {
     root = arg
   }
+}
+
+if (corsPna && corsOrigins.length === 0) {
+  console.error(
+    'warning: --cors-private-network has no effect without --cors; ignoring it',
+  )
+  corsPna = false
 }
 
 let contentTypes = {
@@ -87,6 +109,36 @@ async function getPort() {
     if (res === 'not used') return port
   }
   return 0
+}
+
+// CORS and Private Network Access (PNA) are one feature, not three: Chrome
+// only grants a public origin access to a private-network address after a
+// successful preflight, so PNA needs OPTIONS handling *and* an
+// Access-Control-Allow-Origin reply. A --cors that only echoed Allow-Origin
+// would still fail that preflight, hence --cors-private-network implies both.
+function setCorsHeaders(req, res) {
+  if (corsOrigins.length === 0) return
+  let origin = req.headers.origin
+  if (corsOrigins.includes('*')) {
+    // unsafe by design: any website can read responses from this server
+    res.setHeader('Access-Control-Allow-Origin', '*')
+  } else {
+    // The response is selected based on Origin, so caches must key on it --
+    // including for rejected origins, which would otherwise poison the cache
+    // with a response that lacks Access-Control-Allow-Origin.
+    res.setHeader('Vary', 'Origin')
+    if (origin && corsOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin)
+    }
+  }
+  // Only echo the private-network grant when the preflight actually asked for
+  // it, otherwise a public page would be told it has private access.
+  if (
+    corsPna &&
+    req.headers['access-control-request-private-network'] === 'true'
+  ) {
+    res.setHeader('Access-Control-Allow-Private-Network', 'true')
+  }
 }
 
 function end(res, status, content) {
@@ -212,6 +264,7 @@ function statToType(stat) {
 async function main() {
   let port = await getPort()
   let server = http.createServer((req, res) => {
+    setCorsHeaders(req, res)
     try {
       let now = new Date().toLocaleString()
       console.log(`[${now}]`, req.method, req.url)
@@ -307,6 +360,21 @@ async function main() {
             fs.createReadStream(file).pipe(res)
           }
           break
+        }
+        case 'OPTIONS': {
+          // Handled only when CORS is enabled; otherwise fall through to the
+          // 405 reply below, keeping the default behaviour unchanged.
+          if (corsOrigins.length > 0) {
+            res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS')
+            res.setHeader(
+              'Access-Control-Allow-Headers',
+              req.headers['access-control-request-headers'] || 'Content-Type',
+            )
+            res.setHeader('Access-Control-Max-Age', '600')
+            res.writeHead(204)
+            res.end()
+            break
+          }
         }
         default: {
           res.writeHead(405)

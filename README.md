@@ -18,11 +18,13 @@ single js file (9 kB) · npm pkg 5 kB compressed
 - supports various media formats (video/audio viewing in browser)
 - UTF-8 charset support for text files (markdown, txt, etc.)
 - HEAD method support (check file size and last modified time)
+- CORS support with an origin allowlist (`--cors=<origin>`), or any origin (`--cors`, unsafe)
+- Private Network Access (PNA) preflight support (`--cors-private-network`)
 
 ## Usage
 
 ```bash
-npx serve-lite [--app] [--open=<browser>] [port] [rootDir]
+npx serve-lite [--app] [--open=<browser>] [--cors[=<origin>]] [--cors-private-network] [port] [rootDir]
 ```
 
 The port and rootDir are optionals
@@ -47,7 +49,12 @@ npx serve-lite --open=firefox public
 
 # by default use current working directory as root directory
 npx serve-lite
+
+# allow cross-origin reads from one origin, with PNA preflight support
+npx serve-lite --cors=https://portal.feelingss.ai --cors-private-network 8100 public
 ```
+
+`--cors` can be repeated to allow several origins. `--cors` without a value allows **any** origin, which is unsafe: any website the user visits can then read responses from this server. Use `--cors-private-network` together with `--cors`, so that Chrome's Private Network Access preflight (a request from a public origin to a local/private address) is answered with `Access-Control-Allow-Private-Network: true`.
 
 Sample output:
 

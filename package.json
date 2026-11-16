@@ -37,7 +37,7 @@
     "dev": "nodemon server.js"
   },
   "devDependencies": {
-    "@types/node": "^17.0.21",
-    "nodemon": "^2.0.15"
+    "@types/node": "^24.0.0",
+    "nodemon": "^3.1.14"
   }
 }

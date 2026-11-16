@@ -14,6 +14,7 @@ let openBrowser = null
 // corsOrigins is an allowlist of origins; '*' (from the bare --cors) allows any
 let corsOrigins = []
 let corsPna = false
+let symlinkScope = 'inside'
 
 let root = './'
 for (let i = 2; i < args.length; i++) {
@@ -38,17 +39,41 @@ for (let i = 2; i < args.length; i++) {
     corsPna = true
     continue
   }
+  // A bare --symlink and any value other than inside/outside are usage
+  // errors: a typo must not quietly fall back to a different scope than the
+  // one asked for.
+  if (arg == '--symlink' || arg.startsWith('--symlink=')) {
+    // the bare form has no value, so it is '' and reaches the usage error
+    let value = arg.substring('--symlink='.length)
+    if (value !== 'inside' && value !== 'outside') {
+      console.error('usage: --symlink accepts inside (default) or outside')
+      process.exit(1)
+    }
+    symlinkScope = value
+    continue
+  }
   port = +arg || port
   if (fs.existsSync(arg)) {
     root = arg
   }
 }
 
+// Resolved once: every request is compared against it, so a symlink cannot
+// make a path look like it is inside the root when its target is not.
+let realRoot = fs.realpathSync(root)
+
 if (corsPna && corsOrigins.length === 0) {
   console.error(
     'warning: --cors-private-network has no effect without --cors; ignoring it',
   )
   corsPna = false
+}
+
+// serving a target outside the root is a permission, not a detail, so say so on
+// every start: the operator may not be the one who passed the flag; realRoot
+// rather than root, because that is the boundary the guard enforces
+if (symlinkScope === 'outside') {
+  console.log(`symlinks outside ${realRoot} are served`)
 }
 
 let contentTypes = {
@@ -145,6 +170,13 @@ function end(res, status, content) {
   res.writeHead(status)
   res.write(content)
   res.end()
+}
+
+// '..' alone is the parent of the directory itself, the separator is what
+// keeps a name that merely starts with '..' (e.g. '..dots.txt') inside it
+function isAbove(base, target) {
+  let rel = path.relative(base, target)
+  return rel === '..' || rel.startsWith('..' + path.sep)
 }
 
 let templatePart1 = /* html */ `<!DOCTYPE html>
@@ -287,7 +319,17 @@ async function main() {
             filename = url.replace(/^\//, './')
             file = path.join(root, filename)
           }
-          if (path.relative(root, file).startsWith('..')) {
+          // The target, not the requested path, decides the scope: a symlink
+          // inside the root that points outside it passes a check on the
+          // unresolved path and would be served. A dangling link has no target
+          // to resolve (realpathSync throws), and it must stay a plain "File
+          // not found", so only an existing file is resolved.
+          let traversal = isAbove(root, file)
+          let outside =
+            fs.existsSync(file) && isAbove(realRoot, fs.realpathSync(file))
+          // --symlink=outside relaxes only the resolved target; a literal '..'
+          // in the url is still a traversal attempt, so it stays refused.
+          if (traversal || (outside && symlinkScope !== 'outside')) {
             end(res, 404, `Escape above root: ${filename}`)
             break
           }
@@ -326,22 +368,39 @@ async function main() {
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
               let filePath = path.join(dir, file)
-              let stat
-              let type
+              // lstat is the only way to know an entry is a link, and it is
+              // the only syscall a regular entry costs: the stat and realpath
+              // below are paid by links alone, so a large directory adds no
+              // calls compared to the stat this replaces.
+              let type = '?'
               try {
-                stat = fs.statSync(filePath)
-                type = statToType(stat)
+                type = statToType(fs.lstatSync(filePath))
               } catch (err) {
-                // Handle inaccessible files (e.g., broken symlinks)
+                // the entry vanished between readdir and here
+              }
+              if (type === 'L') {
+                // the target is written into the page too, so escape it like
+                // the name: '&' or '<' would otherwise start an entity or tag
+                let target = fs
+                  .readlinkSync(filePath)
+                  .replace(/&/g, '&amp;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;')
                 try {
-                  stat = fs.lstatSync(filePath)
-                  type = statToType(stat)
-                  if (type === 'L') {
-                    let target = fs.readlinkSync(filePath)
-                    text = `${text} → ${target} (broken symlink)`
+                  // a link is listed as what it resolves to, unless the target
+                  // is outside the root and that target is refused
+                  type = statToType(fs.statSync(filePath))
+                  if (
+                    symlinkScope !== 'outside' &&
+                    isAbove(realRoot, fs.realpathSync(filePath))
+                  ) {
+                    type = 'L'
+                    text = `${text} → ${target} (outside root)`
                   }
-                } catch (lstatErr) {
-                  type = '?'
+                } catch (err) {
+                  // the target is gone: it is a dangling link, not a file
+                  type = 'L'
+                  text = `${text} → ${target} (broken symlink)`
                 }
               }
               res.write(`[${type}] <a href="${href}">${text}</a><br>`)

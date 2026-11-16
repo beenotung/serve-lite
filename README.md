@@ -20,11 +20,12 @@ single js file (9 kB) · npm pkg 5 kB compressed
 - HEAD method support (check file size and last modified time)
 - CORS support with an origin allowlist (`--cors=<origin>`), or any origin (`--cors`, unsafe)
 - Private Network Access (PNA) preflight support (`--cors-private-network`)
+- refuses symlinks whose target is outside the root (`--symlink=outside` to allow them)
 
 ## Usage
 
 ```bash
-npx serve-lite [--app] [--open=<browser>] [--cors[=<origin>]] [--cors-private-network] [port] [rootDir]
+npx serve-lite [--app] [--open=<browser>] [--cors[=<origin>]] [--cors-private-network] [--symlink=outside] [port] [rootDir]
 ```
 
 The port and rootDir are optionals
@@ -52,9 +53,14 @@ npx serve-lite
 
 # allow cross-origin reads from one origin, with PNA preflight support
 npx serve-lite --cors=https://portal.feelingss.ai --cors-private-network 8100 public
+
+# serve a symlink that points outside the root directory
+npx serve-lite --symlink=outside 8100 public
 ```
 
 `--cors` can be repeated to allow several origins. `--cors` without a value allows **any** origin, which is unsafe: any website the user visits can then read responses from this server. Use `--cors-private-network` together with `--cors`, so that Chrome's Private Network Access preflight (a request from a public origin to a local/private address) is answered with `Access-Control-Allow-Private-Network: true`.
+
+A symlink is resolved before it is served, and by default a link whose target is outside the root directory is refused (`404 Escape above root`), so a link cannot expose the rest of the filesystem. Pass `--symlink=outside` to allow it; the server then prints `symlinks outside <root> are served` on startup. `--symlink=outside` is the only accepted value — any other value, or a bare `--symlink`, exits with a usage error.
 
 Sample output:
 

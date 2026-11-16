@@ -189,66 +189,73 @@ function isDirectoryWithIndexFile(dir) {
   }
 }
 
-function parseNumber(s) {
-  if (s.length === 0) return NaN
-  if (s[0] === '-') return NaN
-  return parseFloat(s.replace('e', ' ').replace('.', ' '))
-}
+// The comparison is vendored from pretty-sort (src/index.ts). Its for(;;) walk
+// had a fixed point on '.0' and ' 0.' (both parse to 0, neither starts with
+// '0', so nothing was stripped) and never returned; a key per name makes the
+// comparison a pure function of its arguments, so the order is total.
 
-function removeNumberPrefix(s, num) {
-  if (num === 0) {
-    return s.replace(/^0+/, '')
+// The extension is split off first so that a shared suffix does not decide the
+// order of the versions above it: '1.0.10.txt' sorts by '1.0.10', not by '.txt'.
+// A leading dot belongs to the stem, it marks a dotfile ('.bashrc') instead of
+// starting an extension.
+function parseSortKey(name) {
+  let dot = name.lastIndexOf('.')
+  // -1 is a name without an extension, 0 is a dotfile like '.bashrc'
+  if (dot < 1) dot = name.length
+  return {
+    stem: splitRuns(name.substring(0, dot)),
+    ext: splitRuns(name.substring(dot)),
   }
-  return s.replace(/^0+/, '').slice(String(num).length)
 }
 
-function countCommonSuffix(a, b) {
-  let n = Math.min(a.length, b.length)
-  let tail = 0
-  for (let i = 0; i < n; i++) {
-    if (a[a.length - 1 - i] === b[b.length - 1 - i]) {
-      tail++
-    } else {
-      break
+// split one part into numeric and non-numeric runs: 'file10' -> [file, 10]
+function splitRuns(part) {
+  let runs = []
+  let i = 0
+  while (i < part.length) {
+    let digit = part[i] >= '0' && part[i] <= '9'
+    let end = i + 1
+    while (end < part.length) {
+      if ((part[end] >= '0' && part[end] <= '9') !== digit) break
+      end++
     }
+    let text = part.substring(i, end)
+    runs.push(digit ? { num: +text, text } : { text })
+    i = end
   }
-  return tail
+  return runs
 }
 
-function countCommonPrefix(a, b) {
-  let n = Math.min(a.length, b.length)
-  let prefix = 0
-  for (let i = 0; i < n; i++) {
-    if (a[i] === b[i]) {
-      prefix++
-    } else {
-      break
-    }
+function compareRun(a, b) {
+  // runs of digits compare by value, so file2 comes before file10
+  if (a.num !== undefined && b.num !== undefined && a.num !== b.num) {
+    return a.num < b.num ? -1 : 1
   }
-  return prefix
+  // a digit run next to a word, or two equal numbers ('1' and '01'), compare by
+  // their characters, which keeps '.hidden' and 'A.txt' where they were
+  return a.text < b.text ? -1 : a.text > b.text ? 1 : 0
+}
+
+function compareRuns(a, b) {
+  let n = Math.min(a.length, b.length)
+  for (let i = 0; i < n; i++) {
+    let diff = compareRun(a[i], b[i])
+    if (diff !== 0) return diff
+  }
+  // '1' and '1.0' share the prefix, the shorter key comes first
+  return a.length < b.length ? -1 : a.length > b.length ? 1 : 0
 }
 
 function prettyCompare(a, b) {
-  let suffix = countCommonSuffix(a, b)
-  a = a.substring(0, a.length - suffix)
-  b = b.substring(0, b.length - suffix)
-
-  for (;;) {
-    let prefix = countCommonPrefix(a, b)
-    a = a.substring(prefix)
-    b = b.substring(prefix)
-
-    let aNum = parseNumber(a)
-    let bNum = parseNumber(b)
-    if (!isNaN(aNum) && !isNaN(bNum)) {
-      if (aNum < bNum) return -1
-      if (aNum > bNum) return 1
-      a = removeNumberPrefix(a, aNum)
-      b = removeNumberPrefix(b, bNum)
-      continue
-    }
-    return a < b ? -1 : a > b ? 1 : 0
-  }
+  if (a === b) return 0
+  let aKey = parseSortKey(a)
+  let bKey = parseSortKey(b)
+  let diff = compareRuns(aKey.stem, bKey.stem)
+  if (diff !== 0) return diff
+  diff = compareRuns(aKey.ext, bKey.ext)
+  if (diff !== 0) return diff
+  // the runs spell the name out, so only the same name reaches this line
+  return 0
 }
 
 function statToType(stat) {

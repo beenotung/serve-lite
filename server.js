@@ -315,9 +315,9 @@ async function main() {
               let href = `${url}/${file}`.replace(/^\/\//, '/')
               href = encodeURI(href).replaceAll('#', '%23')
               let text = file
-                .replace(/&/g, '&amp')
-                .replace(/</g, '&lt')
-                .replace(/>/g, '&gt')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
               let filePath = path.join(dir, file)
               let stat
               let type

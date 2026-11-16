@@ -14,10 +14,12 @@ let tmp, root, child, url
 
 // the cli takes the port and the root as plain arguments and prints one banner
 // per address on start; the localhost line is the one worth waiting for
-function launch(port, dir) {
-  let child = spawn(process.execPath, [serverFile, String(port), dir], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+function launch(port, dir, extraArgs = []) {
+  let child = spawn(
+    process.execPath,
+    [serverFile, String(port), dir, ...extraArgs],
+    { stdio: ['ignore', 'pipe', 'pipe'] },
+  )
   let err = ''
   child.stderr.setEncoding('utf8')
   child.stderr.on('data', chunk => (err += chunk))
@@ -63,8 +65,15 @@ test.before(async () => {
   root = path.join(tmp, 'root')
   fs.cpSync(path.join(__dirname, 'fixtures'), root, { recursive: true })
   fs.symlinkSync('missing-target', path.join(root, 'broken-link'))
+  // the target is written into the listing too, so it needs the same escaping
+  fs.symlinkSync('no&such<file', path.join(root, 'broken-amp-link'))
   // the parent holds a file that only a missing guard would serve
   fs.writeFileSync(path.join(tmp, 'package.json'), '{"name": "outside"}\n')
+  // one link resolves inside the root, the other through it
+  fs.symlinkSync('hello.txt', path.join(root, 'inside-link'))
+  fs.symlinkSync(path.join(tmp, 'package.json'), path.join(root, 'outside-link'))
+  // a name that starts with two dots is a plain file, not the parent folder
+  fs.writeFileSync(path.join(root, '..dots.txt'), 'a name starting with dots\n')
   // passes existsSync and statSync but cannot be opened (root ignores the mode)
   let secret = path.join(root, 'secret.txt')
   fs.copyFileSync(path.join(root, 'hello.txt'), secret)
@@ -121,13 +130,108 @@ test('the listing escapes < and > in the visible text', async () => {
 
 test('the listing marks a dangling symlink', async () => {
   let listing = await getText(url + '/')
-  assert.ok(listing.includes('broken-link → missing-target (broken symlink)'))
+  assert.ok(
+    listing.includes(
+      '[L] <a href="/broken-link">broken-link → missing-target (broken symlink)</a>',
+    ),
+  )
+})
+
+// The link target is written into the page as well, so a raw '&' would be read
+// as an entity and a raw '<' as the start of a tag.
+test('the listing escapes & and < in a symlink target', async () => {
+  let listing = await getText(url + '/')
+  assert.ok(listing.includes('broken-amp-link → no&amp;such&lt;file (broken symlink)'))
+  assert.ok(!listing.includes('no&such'), 'the raw target never reaches the page')
 })
 
 test('a path above the root is rejected', async () => {
   let res = await rawGet('/../package.json')
   assert.equal(res.status, 404)
   assert.match(res.body, /Escape above root/)
+})
+
+test('a symlink to a file inside the root is served', async () => {
+  let res = await fetch(url + '/inside-link')
+  assert.equal(res.status, 200)
+  assert.equal(await res.text(), 'hello from the fixture root\n')
+  // it resolves inside the root, so the listing shows the file it is, not a
+  // link with a target to explain
+  let listing = await getText(url + '/')
+  assert.ok(listing.includes('[F] <a href="/inside-link">inside-link</a>'))
+})
+
+// the link itself lives inside the root, so only the resolved target shows
+// that it leaves it -- the guard compared the unresolved path and served it
+test('a symlink to a file outside the root is refused', async () => {
+  let res = await fetch(url + '/outside-link')
+  assert.equal(res.status, 404)
+  assert.match(await res.text(), /Escape above root/)
+  // the listing must not offer a path the next request would refuse
+  let listing = await getText(url + '/')
+  assert.match(
+    listing,
+    /\[L\] <a href="\/outside-link">outside-link → [^<]* \(outside root\)<\/a>/,
+  )
+})
+
+test('--symlink=outside serves a symlink outside the root', async () => {
+  let allowedPort = port + 2
+  let allowed = await launch(allowedPort, root, ['--symlink=outside'])
+  try {
+    let res = await fetch(`http://localhost:${allowedPort}/outside-link`)
+    assert.equal(res.status, 200)
+    assert.equal(await res.text(), '{"name": "outside"}\n')
+    // servable now, so the listing shows it like the file it points at
+    let listing = await getText(`http://localhost:${allowedPort}/`)
+    assert.ok(listing.includes('[F] <a href="/outside-link">outside-link</a>'))
+    assert.ok(!listing.includes('(outside root)'))
+  } finally {
+    let exited = once(allowed, 'exit')
+    allowed.kill()
+    await exited
+  }
+})
+
+// --symlink=inside names the default, so it is accepted and refuses the same
+// target the default refuses
+test('--symlink=inside refuses a symlink outside the root', async () => {
+  let insidePort = port + 4
+  let inside = await launch(insidePort, root, ['--symlink=inside'])
+  try {
+    let res = await fetch(`http://localhost:${insidePort}/outside-link`)
+    assert.equal(res.status, 404)
+    assert.match(await res.text(), /Escape above root/)
+  } finally {
+    let exited = once(inside, 'exit')
+    inside.kill()
+    await exited
+  }
+})
+
+// Regression test for the false positive: the old guard refused any name that
+// started with '..', though only the parent folder itself is out of scope.
+test('a name that starts with two dots is served', async () => {
+  let res = await fetch(url + '/..dots.txt')
+  assert.equal(res.status, 200)
+  assert.equal(await res.text(), 'a name starting with dots\n')
+})
+
+// the flag has exactly two values; a typo must fail instead of silently
+// serving a different scope than the one asked for
+test('an unknown --symlink value is a usage error', async () => {
+  let child = spawn(
+    process.execPath,
+    [serverFile, String(port + 3), root, '--symlink=nope'],
+    // a value that is wrongly accepted leaves a server running, so bound it
+    { stdio: ['ignore', 'pipe', 'pipe'], timeout: 3000 },
+  )
+  let err = ''
+  child.stderr.setEncoding('utf8')
+  child.stderr.on('data', chunk => (err += chunk))
+  let [code] = await once(child, 'exit')
+  assert.notEqual(code, 0)
+  assert.match(err, /--symlink accepts inside \(default\) or outside/)
 })
 
 // The '.0' and ' 0.' pair lives in hang/ on purpose: the old prefix/suffix walk

@@ -357,7 +357,21 @@ async function main() {
           if (req.method === 'HEAD') {
             res.end()
           } else {
-            fs.createReadStream(file).pipe(res)
+            // The file can pass the checks above and still fail to open
+            // (chmod 000, removed in between, EACCES on a network mount).
+            // An unhandled 'error' here would kill the whole server, so answer
+            // with a 500 when the headers are still ours to send.
+            let stream = fs.createReadStream(file)
+            stream.on('error', error => {
+              if (res.headersSent) {
+                res.destroy()
+                return
+              }
+              // the length of the file never sent would truncate the reply
+              res.removeHeader('Content-Length')
+              end(res, 500, String(error))
+            })
+            stream.pipe(res)
           }
           break
         }

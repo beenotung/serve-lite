@@ -5,6 +5,7 @@ let http = require('http')
 let os = require('os')
 let path = require('path')
 let { spawn } = require('child_process')
+let { once } = require('events')
 
 let serverFile = path.join(__dirname, '..', 'server.js')
 let port = 18471
@@ -51,6 +52,10 @@ function rawGet(requestPath) {
 
 let getText = url => fetch(url).then(res => res.text())
 
+// the listing writes one anchor per entry, in the sorted order
+let anchorTexts = html =>
+  [...html.matchAll(/<a href="[^"]*">([^<]*)<\/a>/g)].map(match => match[1])
+
 test.before(async () => {
   // one copy of the sample root holds every case; the entries git cannot keep
   // (a dangling symlink here, mode 000 below) are made in the copy
@@ -68,8 +73,14 @@ test.before(async () => {
   url = `http://localhost:${port}`
 })
 
-test.after(() => {
-  if (child && child.exitCode === null) child.kill()
+test.after(async () => {
+  if (child && child.exitCode === null && child.signalCode === null) {
+    // SIGTERM is async: the next run would bind into a port this one still
+    // holds, so wait for the exit before the temp folder goes away
+    let exited = once(child, 'exit')
+    child.kill()
+    await exited
+  }
   if (tmp) fs.rmSync(tmp, { recursive: true, force: true })
 })
 
@@ -119,22 +130,43 @@ test('a path above the root is rejected', async () => {
   assert.match(res.body, /Escape above root/)
 })
 
-// The '.0' and ' 0.' pair lives in hang/ on purpose: the root listing above
-// only emits the name 'hang'. Served from that folder, prettyCompare never
-// returns (suffix and prefix cancel, both numbers parse to 0, the remainder
-// repeats), so the listing never answers. The fix is its own decision.
-test.todo('the listing answers for names like .0 and " 0."', async () => {
+// The '.0' and ' 0.' pair lives in hang/ on purpose: the old prefix/suffix walk
+// reached a fixed point there (both parse to 0, neither starts with '0', so
+// nothing was stripped) and never returned, so the listing never answered and
+// the whole server stopped answering.
+test('the listing sorts names by number, including .0 and " 0."', async () => {
   let hang = await launch(port + 1, path.join(root, 'hang'))
   let hangUrl = `http://localhost:${port + 1}/`
-  let listing = fetch(hangUrl).then(res => res.text()).catch(() => 'aborted')
-  let wait = new Promise(resolve => setTimeout(resolve, 2000, 'timeout'))
+  let listing = fetch(hangUrl)
+    .then(res => res.text())
+    .catch(() => 'aborted')
+  let timer
+  let wait = new Promise(resolve => {
+    timer = setTimeout(resolve, 2000, 'timeout')
+  })
   try {
-    assert.notEqual(await Promise.race([listing, wait]), 'timeout')
+    let body = await Promise.race([listing, wait])
+    assert.notEqual(body, 'timeout')
+    // ' ' sorts before '.', so the pair comes out in that order
+    assert.deepEqual(anchorTexts(body), [' 0.', '.0'])
   } finally {
+    // the losing side of the race must not hold the event loop open for 2s
+    clearTimeout(timer)
     // kill outright: a blocked loop cannot be relied on to run the default
     // signal handler
+    let exited = once(hang, 'exit')
     hang.kill('SIGKILL')
+    await exited
   }
+
+  // one sequence covers numeric and version order at once: a digit run compares
+  // by value (file2 before file10) and a version by its stem first (1.0.10
+  // before 1.0.11); the plain string order would put file10 before file2
+  let order = await getText(url + '/order/')
+  let names = [...order.matchAll(/<a href="([^"]*)"/g)].map(match =>
+    match[1].split('/').pop(),
+  )
+  assert.equal(names.join(' '), '1.0.10 1.0.11 file2 file10')
 })
 
 // Regression test for the unhandled read stream 'error': a file that passes
